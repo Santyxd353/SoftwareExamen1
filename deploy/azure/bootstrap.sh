@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_ORIGIN="${1:?usage: bootstrap.sh http(s)://host}"
-REPO_URL="https://github.com/Santyxd353/ProyectoSOFTWARE1.git"
+REPO_URL="https://github.com/Santyxd353/SoftwareExamen1.git"
 REPO_BRANCH="feature/security-ai-mobile-polish"
 GROQ_SOURCE="/tmp/backend.local.env"
 

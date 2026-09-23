@@ -173,4 +173,4 @@ Los ZIP generados antes de esta ampliación continúan disponibles desde la ruta
 
 ## Repositorio oficial
 
-Este proyecto se mantiene en [Santyxd353/ProyectoSOFTWARE1](https://github.com/Santyxd353/ProyectoSOFTWARE1).
+Este proyecto se mantiene en [Santyxd353/SoftwareExamen1](https://github.com/Santyxd353/SoftwareExamen1).

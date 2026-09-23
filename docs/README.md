@@ -11,4 +11,4 @@ La aplicación Android, XMI/JSON/ZIP, sincronización offline, colaboración, re
 
 El PUDS entregado describe Gemini como proveedor cloud seleccionado (secciones 5.6 y 8.2). Esa integración permanece disponible, pero dos claves recibieron 403 de Google al generar. Para cerrar la operación cloud sin cambiar los casos de uso, el adaptador común admite Groq como proveedor principal; Qwen 3.8 fue verificado con texto, JSON e imagen reales. La sustitución es una decisión de infraestructura: las interfaces, confirmaciones y fallback documentados no cambian.
 
-Repositorio oficial: [Santyxd353/ProyectoSOFTWARE1](https://github.com/Santyxd353/ProyectoSOFTWARE1).
+Repositorio oficial: [Santyxd353/SoftwareExamen1](https://github.com/Santyxd353/SoftwareExamen1).

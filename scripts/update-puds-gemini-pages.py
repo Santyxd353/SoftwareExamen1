@@ -278,9 +278,9 @@ def page_123(c, qr_data):
     c.drawImage(ImageReader(BytesIO(qr_data)), 211, 412, width=190, height=190)
     c.setFillColor(INK)
     c.setFont("Helvetica-Bold", 11)
-    c.drawCentredString(306, 376, "Santyxd353/ProyectoSOFTWARE1")
+    c.drawCentredString(306, 376, "Santyxd353/SoftwareExamen1")
     c.setFont("Helvetica", 9)
-    c.drawCentredString(306, 353, "https://github.com/Santyxd353/ProyectoSOFTWARE1")
+    c.drawCentredString(306, 353, "https://github.com/Santyxd353/SoftwareExamen1")
     rows = [
         [paragraph("Carpeta", bold=True), paragraph("Contenido", bold=True)],
         [paragraph("frontend/"), paragraph("Aplicación web Next.js y editor UML.")],
