@@ -14,6 +14,7 @@ import { useI18n } from '@/components/i18n/I18nProvider';
 import { useAuthHydrated } from '@/hooks/useAuthHydrated';
 import { protectedRouteState } from '@/lib/protected-route';
 import { Download, Loader2 } from 'lucide-react';
+import { codeGenerationPanelViewportStyle } from '@/lib/code-generation-panel-layout';
 
 interface DiagramPageProps {
   params: Promise<{
@@ -60,8 +61,8 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   }, [diagramId, authState, router, t]);
 
   // Handle diagram save
-  const handleSave = async (diagramData: any) => {
-    if (!diagram) return;
+  const handleSave = async (diagramData: any): Promise<Diagram> => {
+    if (!diagram) throw new Error(t('diagramEditor.header.notFound'));
 
     try {
       console.log('💾 Intentando guardar diagrama:', {
@@ -88,7 +89,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
         status: error.response?.status,
         statusText: error.response?.statusText
       });
-      setError(error.response?.data?.message || error.message || t('diagramEditor.validation.saveError'));
+      throw error;
     }
   };
 
@@ -228,10 +229,17 @@ export default function DiagramPage({ params }: DiagramPageProps) {
 
         {/* Code Generation Panel */}
         {isCodeGenOpen && (
-          <div className="fixed right-4 top-20 w-80 z-40">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('generation.title')}
+            className="fixed inset-x-3 top-3 z-50 max-w-[calc(100vw-1.5rem)] rounded-lg sm:left-auto sm:right-4 sm:top-20 sm:w-96"
+            style={codeGenerationPanelViewportStyle()}
+          >
             <CodeGenerationPanel
               diagramId={diagram.id}
               diagramName={diagram.name}
+              onClose={() => setIsCodeGenOpen(false)}
             />
           </div>
         )}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Download, Code, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Download, Code, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { aiAPI, codeGenAPI } from '@/lib/api';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import { refinementFiles, toggleRefinementFeature } from '@/lib/backend-refinement-selection';
@@ -9,9 +9,10 @@ import { refinementFiles, toggleRefinementFeature } from '@/lib/backend-refineme
 interface CodeGenerationPanelProps {
   diagramId: string;
   diagramName: string;
+  onClose: () => void;
 }
 
-export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGenerationPanelProps) {
+export default function CodeGenerationPanel({ diagramId, diagramName, onClose }: CodeGenerationPanelProps) {
   const [isGeneratingBackend, setIsGeneratingBackend] = useState(false);
   const [isGeneratingFrontend, setIsGeneratingFrontend] = useState(false);
   const [backendResult, setBackendResult] = useState<any>(null);
@@ -139,10 +140,21 @@ export default function CodeGenerationPanel({ diagramId, diagramName }: CodeGene
   };
 
   return (
-    <div className="bg-card rounded-lg shadow-lg border border-border p-6">
-      <div className="flex items-center space-x-2 mb-4">
-        <Code size={20} className="text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-900">{t('generation.title')}</h3>
+    <div className="bg-card rounded-lg shadow-lg border border-border p-4 sm:p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Code size={20} className="shrink-0 text-blue-600" />
+          <h3 className="truncate text-lg font-semibold text-gray-900">{t('generation.title')}</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('diagramEditor.actions.closeCode')}
+          title={t('diagramEditor.actions.closeCode')}
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-gray-600 transition-colors hover:bg-muted hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       <div className="space-y-6">

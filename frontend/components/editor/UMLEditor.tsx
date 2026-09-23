@@ -36,6 +36,10 @@ import {
   rememberServerSequence,
 } from '@/lib/durable-collaboration';
 import { serializeDiagramData } from '@/lib/diagram-persistence';
+import {
+  runManualDiagramSave,
+  type ManualDiagramSaveStatus,
+} from '@/lib/manual-diagram-save';
 
 const nodeTypes = {
   umlClass: UMLClassNode,
@@ -50,7 +54,7 @@ interface UMLEditorProps {
   workspaceId: string;
   userId: string;
   userName: string;
-  onSave: (data: any) => Promise<Diagram | void> | Diagram | void;
+  onSave: (data: any) => Promise<Diagram>;
 }
 
 export default function UMLEditor({ diagram, workspaceId, userId, userName, onSave }: UMLEditorProps) {
@@ -63,6 +67,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<ManualDiagramSaveStatus>('idle');
   const { t } = useI18n();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -76,13 +81,24 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
   const submitSaveRef = useRef<
     ((data: Record<string, unknown>) => void) | null
   >(null);
+  const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // WebSocket connection for real-time collaboration
   const { socket, isConnected, emit } = useSocket(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001');
 
+  const persistWithHttp = useCallback(async (data: Record<string, unknown>) => {
+    const saved = await onSave(data);
+    confirmedVersionRef.current = saved.version;
+    confirmedDataRef.current = data;
+    setSyncError(null);
+    return saved;
+  }, [onSave]);
+
   const submitDurableSave = useCallback((data: Record<string, unknown>) => {
     if (!socket || !isConnected) {
-      onSave(data);
+      void persistWithHttp(data).catch((error) => {
+        setSyncError(error instanceof Error ? error.message : t('diagramEditor.validation.saveError'));
+      });
       return;
     }
     if (saveInFlightRef.current) {
@@ -135,7 +151,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
           : acknowledgement?.error || 'No se pudo confirmar el cambio colaborativo.',
       );
     });
-  }, [diagram.id, isConnected, onSave, socket]);
+  }, [diagram.id, isConnected, persistWithHttp, socket, t]);
   submitSaveRef.current = submitDurableSave;
 
   // Handle save - defined early to be used by other functions
@@ -156,6 +172,27 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
     submitDurableSave(diagramData);
   }, [nodes, edges, submitDurableSave, userId]);
+
+  const handleManualSave = useCallback(async () => {
+    const diagramData = serializeDiagramData(nodes, edges, userId);
+    if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+
+    try {
+      await runManualDiagramSave({
+        data: diagramData,
+        persist: persistWithHttp,
+        onStatus: setSaveStatus,
+      });
+      saveStatusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2500);
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : t('diagramEditor.validation.saveError'));
+      saveStatusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 4000);
+    }
+  }, [edges, nodes, persistWithHttp, t, userId]);
+
+  useEffect(() => () => {
+    if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+  }, []);
 
   // Función para detectar y crear tabla intermedia para relaciones N:N
   const createIntermediateTable = useCallback((edge: Edge, sourceNode: Node, targetNode: Node) => {
@@ -1137,10 +1174,11 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
         {/* Barra de Herramientas */}
         <UMLToolbar
           onAddClass={() => onAddClass({ x: 100, y: 100 })}
-          onSave={handleSave}
+          onSave={() => void handleManualSave()}
           onEditClass={() => selectedNode && setIsEditingClass(true)}
           hasSelectedNode={!!selectedNode}
           isConnected={isConnected}
+          saveStatus={saveStatus}
         />
 
         {/* Área del Canvas */}
