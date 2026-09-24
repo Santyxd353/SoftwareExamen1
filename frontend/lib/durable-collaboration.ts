@@ -80,6 +80,25 @@ export const confirmedDiagramData = (
     : submitted
 );
 
+export const nextCollaborationBaseline = (
+  previous: {
+    version: number;
+    data: Record<string, unknown>;
+  },
+  submitted: Record<string, unknown>,
+  acknowledgement: {
+    version: number;
+    autoMerged?: boolean;
+  },
+): {
+  version: number;
+  data: Record<string, unknown>;
+} => (
+  acknowledgement.autoMerged
+    ? previous
+    : { version: acknowledgement.version, data: submitted }
+);
+
 export const getLastServerSequence = (
   storage: StorageLike,
   diagramId: string,

@@ -33,6 +33,7 @@ import {
   createOperationEnvelope,
   getLastServerSequence,
   getOrCreateDeviceId,
+  nextCollaborationBaseline,
   nextClientSequence,
   rememberServerSequence,
 } from '@/lib/durable-collaboration';
@@ -73,7 +74,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onAp
   const [selectedEdge, setSelectedEdge] = useState<any | null>(null);
   const [isEditingRelationship, setIsEditingRelationship] = useState(false);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<ManualDiagramSaveStatus>('idle');
   const { t } = useI18n();
@@ -129,8 +130,16 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onAp
     }
 
     const confirmedData = confirmedDiagramData(data, acknowledgement);
-    confirmedVersionRef.current = acknowledgement.version;
-    confirmedDataRef.current = confirmedData;
+    const nextBaseline = nextCollaborationBaseline(
+      {
+        version: confirmedVersionRef.current,
+        data: confirmedDataRef.current,
+      },
+      data,
+      acknowledgement,
+    );
+    confirmedVersionRef.current = nextBaseline.version;
+    confirmedDataRef.current = nextBaseline.data;
     rememberServerSequence(localStorage, diagram.id, acknowledgement.sequence);
     onSaveConfirmed(confirmedData, acknowledgement.version);
     setSyncError(

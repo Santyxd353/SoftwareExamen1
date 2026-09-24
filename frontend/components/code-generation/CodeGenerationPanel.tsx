@@ -144,7 +144,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <Code size={20} className="shrink-0 text-blue-600" />
-          <h3 className="truncate text-lg font-semibold text-gray-900">{t('generation.title')}</h3>
+          <h3 className="truncate text-lg font-semibold text-card-foreground">{t('generation.title')}</h3>
         </div>
         <button
           type="button"
@@ -159,9 +159,9 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
 
       <div className="space-y-6">
         {/* Backend Section - Spring Boot */}
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h4 className="text-md font-semibold text-gray-900 mb-3">{t('generation.spring.title')}</h4>
-          <p className="text-sm text-gray-600 mb-3">
+        <div className="rounded-lg border border-border p-4">
+          <h4 className="text-md mb-3 font-semibold text-card-foreground">{t('generation.spring.title')}</h4>
+          <p className="mb-3 text-sm text-muted-foreground">
             {t('generation.spring.description')}
           </p>
 
@@ -170,7 +170,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
             disabled={isGeneratingBackend}
             className={`w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-md font-medium transition-colors ${
               isGeneratingBackend
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                ? 'cursor-not-allowed bg-muted text-muted-foreground'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
           >
@@ -208,9 +208,9 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
             </div>
           )}
 
-          <div className="bg-gray-50 rounded-md p-3 mt-3">
-            <p className="text-xs font-medium text-gray-900 mb-1">{t('generation.includes')}</p>
-            <ul className="text-xs text-gray-600 space-y-0.5">
+          <div className="mt-3 rounded-md bg-muted p-3">
+            <p className="mb-1 text-xs font-medium text-foreground">{t('generation.includes')}</p>
+            <ul className="space-y-0.5 text-xs text-muted-foreground">
               <li>• {t('generation.spring.featureData')}</li>
               <li>• {t('generation.spring.featureRest')}</li>
               <li>• {t('generation.spring.featureDatabase')}</li>
@@ -218,11 +218,11 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
             </ul>
           </div>
 
-          <div className="border-t border-gray-200 mt-4 pt-4">
-            <h5 className="text-sm font-semibold text-gray-900 mb-1">
+          <div className="mt-4 border-t border-border pt-4">
+            <h5 className="mb-1 text-sm font-semibold text-card-foreground">
               {t('generation.refinement.title')}
             </h5>
-            <p className="text-xs text-gray-600 mb-2">
+            <p className="mb-2 text-xs text-muted-foreground">
               {t('generation.refinement.description')}
             </p>
             <textarea
@@ -231,23 +231,23 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
               maxLength={2000}
               rows={3}
               placeholder={t('generation.refinement.placeholder')}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <button
               onClick={handleProposeRefinement}
               disabled={isRefining || !refinementInstruction.trim()}
-              className="mt-2 w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isRefining ? t('generation.refinement.processing') : t('generation.refinement.propose')}
             </button>
 
             {refinementProposal && (
-              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3">
-                <p className="text-sm font-medium text-blue-900">{refinementProposal.summary}</p>
-                <fieldset className="mt-2 space-y-2 text-xs text-blue-800">
+              <div className="mt-3 rounded-md border border-primary/30 bg-primary/10 p-3">
+                <p className="text-sm font-medium text-foreground">{refinementProposal.summary}</p>
+                <fieldset className="mt-2 space-y-2 text-xs text-foreground">
                   <legend className="mb-1 font-semibold">{t('generation.refinement.selectChanges')}</legend>
                   {refinementProposal.changes.map((change: any) => (
-                    <label key={change.feature} className="flex cursor-pointer gap-2 rounded border border-blue-200 bg-white p-2">
+                    <label key={change.feature} className="flex cursor-pointer gap-2 rounded border border-border bg-card p-2">
                       <input
                         type="checkbox"
                         checked={selectedRefinements.includes(change.feature)}
@@ -255,19 +255,19 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
                       />
                       <span>
                         <strong>{change.feature}</strong>: {change.rationale}
-                        <span className="mt-1 block font-mono text-[11px] text-blue-700">
+                        <span className="mt-1 block font-mono text-[11px] text-muted-foreground">
                           {refinementFiles(change.feature).join(', ')}
                         </span>
                       </span>
                     </label>
                   ))}
                 </fieldset>
-                <ul className="mt-2 space-y-1 text-xs text-blue-800">
+                <ul className="mt-2 space-y-1 text-xs text-foreground">
                   {refinementProposal.warnings.map((warning: string) => (
-                    <li key={warning} className="text-amber-800">• {warning}</li>
+                    <li key={warning} className="text-amber-700 dark:text-amber-300">• {warning}</li>
                   ))}
                 </ul>
-                <p className="mt-2 text-xs text-blue-700">
+                <p className="mt-2 text-xs text-muted-foreground">
                   {t('generation.refinement.confirmHint')}
                 </p>
                 <div className="mt-3 flex gap-2">
@@ -281,7 +281,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
                   <button
                     onClick={() => setRefinementProposal(null)}
                     disabled={isRefining}
-                    className="flex-1 rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-800 hover:bg-blue-100 disabled:opacity-50"
+                    className="flex-1 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium text-card-foreground hover:bg-muted disabled:opacity-50"
                   >
                     {t('generation.refinement.discard')}
                   </button>
@@ -292,9 +292,9 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
         </div>
 
         {/* Frontend Section - Flutter */}
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h4 className="text-md font-semibold text-gray-900 mb-3">{t('generation.flutter.title')}</h4>
-          <p className="text-sm text-gray-600 mb-3">
+        <div className="rounded-lg border border-border p-4">
+          <h4 className="text-md mb-3 font-semibold text-card-foreground">{t('generation.flutter.title')}</h4>
+          <p className="mb-3 text-sm text-muted-foreground">
             {t('generation.flutter.description')}
           </p>
 
@@ -303,7 +303,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
             disabled={isGeneratingFrontend}
             className={`w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-md font-medium transition-colors ${
               isGeneratingFrontend
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                ? 'cursor-not-allowed bg-muted text-muted-foreground'
                 : 'bg-purple-600 text-white hover:bg-purple-700'
             }`}
           >
@@ -341,9 +341,9 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
             </div>
           )}
 
-          <div className="bg-gray-50 rounded-md p-3 mt-3">
-            <p className="text-xs font-medium text-gray-900 mb-1">{t('generation.includes')}</p>
-            <ul className="text-xs text-gray-600 space-y-0.5">
+          <div className="mt-3 rounded-md bg-muted p-3">
+            <p className="mb-1 text-xs font-medium text-foreground">{t('generation.includes')}</p>
+            <ul className="space-y-0.5 text-xs text-muted-foreground">
               <li>• {t('generation.flutter.featureCrud')}</li>
               <li>• {t('generation.flutter.featureMaterial')}</li>
               <li>• {t('generation.flutter.featureApi')}</li>
