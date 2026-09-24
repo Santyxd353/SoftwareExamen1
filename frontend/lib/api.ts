@@ -193,6 +193,22 @@ export const diagramAPI = {
     return response.data;
   },
 
+  applyOperation: async (
+    id: string,
+    operation: {
+      deviceId: string;
+      clientSequence: number;
+      baseVersion: number;
+      baseData: Record<string, unknown>;
+      changes: Record<string, unknown>;
+    },
+  ) => {
+    const response = await api.post(`/diagrams/${id}/operations`, operation, {
+      timeout: 30000,
+    });
+    return response.data;
+  },
+
   addClass: async (diagramId: string, classData: any) => {
     const response = await api.post(`/diagrams/${diagramId}/classes`, classData);
     return response.data;

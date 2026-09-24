@@ -99,7 +99,7 @@ export default function UMLSidebar({ onAddElement }: { onAddElement: (element: a
   };
 
   return (
-    <div className="w-80 bg-card border-r border-border h-full overflow-y-auto">
+    <div className="hidden h-full w-80 overflow-y-auto border-r border-border bg-card xl:block">
       {/* Header */}
       <div className="p-4 border-b border-border bg-muted">
         <h2 className="text-lg font-semibold text-gray-800 flex items-center">

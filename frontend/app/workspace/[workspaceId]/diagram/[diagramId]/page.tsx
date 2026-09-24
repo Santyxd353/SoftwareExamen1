@@ -60,37 +60,13 @@ export default function DiagramPage({ params }: DiagramPageProps) {
     fetchDiagram();
   }, [diagramId, authState, router, t]);
 
-  // Handle diagram save
-  const handleSave = async (diagramData: any): Promise<Diagram> => {
-    if (!diagram) throw new Error(t('diagramEditor.header.notFound'));
-
-    try {
-      console.log('💾 Intentando guardar diagrama:', {
-        diagramId: diagram.id,
-        dataKeys: Object.keys(diagramData),
-        classesCount: diagramData.classes?.length,
-        relationsCount: diagramData.relations?.length
-      });
-
-      const saved = await diagramAPI.updateDiagram(diagram.id, diagramData);
-      console.log('✅ Diagrama guardado en BD exitosamente');
-      setDiagram((previous) => previous ? {
-        ...previous,
-        ...saved,
-        data: diagramData,
-      } : null);
-      setError(null);
-      return saved;
-    } catch (error: any) {
-      console.error('❌ Error guardando diagrama:', error);
-      console.error('❌ Error detalles:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        statusText: error.response?.statusText
-      });
-      throw error;
-    }
+  const handleSaveConfirmed = (data: Record<string, unknown>, version: number) => {
+    setDiagram((previous) => previous ? {
+      ...previous,
+      version,
+      data: data as Diagram['data'],
+      updatedAt: new Date().toISOString(),
+    } : null);
   };
 
   const handleExport = async () => {
@@ -152,10 +128,10 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="flex h-screen min-w-0 flex-col overflow-hidden bg-gray-50">
       {/* Header */}
       <div className="bg-card border-b border-border px-6 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => router.push('/dashboard')}
@@ -171,7 +147,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <LanguageToggle />
             <ThemeToggle />
             <select
@@ -215,7 +191,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
       </div>
 
       {/* Main Editor */}
-      <div className="flex-1 relative">
+      <div className="relative min-h-0 flex-1">
         <ReactFlowProvider>
           <UMLEditor
             key={diagram.id}
@@ -223,7 +199,8 @@ export default function DiagramPage({ params }: DiagramPageProps) {
             workspaceId={workspaceId}
             userId={user.id}
             userName={user.name}
-            onSave={handleSave}
+            onApplyOperation={(operation) => diagramAPI.applyOperation(diagram.id, operation)}
+            onSaveConfirmed={handleSaveConfirmed}
           />
         </ReactFlowProvider>
 
@@ -231,7 +208,6 @@ export default function DiagramPage({ params }: DiagramPageProps) {
         {isCodeGenOpen && (
           <div
             role="dialog"
-            aria-modal="true"
             aria-label={t('generation.title')}
             className="fixed inset-x-3 top-3 z-50 max-w-[calc(100vw-1.5rem)] rounded-lg sm:left-auto sm:right-4 sm:top-20 sm:w-96"
             style={codeGenerationPanelViewportStyle()}

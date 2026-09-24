@@ -151,7 +151,7 @@ export default function CodeGenerationPanel({ diagramId, diagramName, onClose }:
           onClick={onClose}
           aria-label={t('diagramEditor.actions.closeCode')}
           title={t('diagramEditor.actions.closeCode')}
-          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-gray-600 transition-colors hover:bg-muted hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <X size={20} />
         </button>

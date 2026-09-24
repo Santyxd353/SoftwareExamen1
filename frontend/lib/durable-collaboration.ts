@@ -68,6 +68,18 @@ export const createOperationEnvelope = ({
   changes: { type: 'full_update' as const, data },
 });
 
+export const confirmedDiagramData = (
+  submitted: Record<string, unknown>,
+  acknowledgement: {
+    autoMerged?: boolean;
+    data?: Record<string, unknown>;
+  },
+): Record<string, unknown> => (
+  acknowledgement.autoMerged && acknowledgement.data
+    ? acknowledgement.data
+    : submitted
+);
+
 export const getLastServerSequence = (
   storage: StorageLike,
   diagramId: string,

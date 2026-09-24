@@ -29,6 +29,7 @@ import { UMLClass, Diagram } from '@/types/uml';
 import { useSocket } from '@/hooks/useSocket';
 import { useI18n } from '@/components/i18n/I18nProvider';
 import {
+  confirmedDiagramData,
   createOperationEnvelope,
   getLastServerSequence,
   getOrCreateDeviceId,
@@ -40,6 +41,7 @@ import {
   runManualDiagramSave,
   type ManualDiagramSaveStatus,
 } from '@/lib/manual-diagram-save';
+import { createLatestSaveQueue } from '@/lib/latest-save-queue';
 
 const nodeTypes = {
   umlClass: UMLClassNode,
@@ -54,10 +56,16 @@ interface UMLEditorProps {
   workspaceId: string;
   userId: string;
   userName: string;
-  onSave: (data: any) => Promise<Diagram>;
+  onApplyOperation: (operation: ReturnType<typeof createOperationEnvelope>) => Promise<any>;
+  onSaveConfirmed: (data: Record<string, unknown>, version: number) => void;
 }
 
-export default function UMLEditor({ diagram, workspaceId, userId, userName, onSave }: UMLEditorProps) {
+interface SaveConfirmation {
+  version: number;
+  data: Record<string, unknown>;
+}
+
+export default function UMLEditor({ diagram, workspaceId, userId, userName, onApplyOperation, onSaveConfirmed }: UMLEditorProps) {
   const [nodes, setNodes, onNodesChangeBase] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
@@ -76,36 +84,19 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
   const confirmedDataRef = useRef<Record<string, unknown>>(
     (diagram.data || { classes: [], relations: [] }) as Record<string, unknown>,
   );
-  const saveInFlightRef = useRef(false);
-  const queuedSaveRef = useRef<Record<string, unknown> | null>(null);
-  const submitSaveRef = useRef<
-    ((data: Record<string, unknown>) => void) | null
-  >(null);
   const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const persistSnapshotRef = useRef<
+    (data: Record<string, unknown>) => Promise<SaveConfirmation>
+  >(async () => { throw new Error('Save transport is not ready'); });
+  const saveQueueRef = useRef<ReturnType<typeof createLatestSaveQueue<Record<string, unknown>, SaveConfirmation>> | null>(null);
+  if (!saveQueueRef.current) {
+    saveQueueRef.current = createLatestSaveQueue((data) => persistSnapshotRef.current(data));
+  }
 
   // WebSocket connection for real-time collaboration
   const { socket, isConnected, emit } = useSocket(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001');
 
-  const persistWithHttp = useCallback(async (data: Record<string, unknown>) => {
-    const saved = await onSave(data);
-    confirmedVersionRef.current = saved.version;
-    confirmedDataRef.current = data;
-    setSyncError(null);
-    return saved;
-  }, [onSave]);
-
-  const submitDurableSave = useCallback((data: Record<string, unknown>) => {
-    if (!socket || !isConnected) {
-      void persistWithHttp(data).catch((error) => {
-        setSyncError(error instanceof Error ? error.message : t('diagramEditor.validation.saveError'));
-      });
-      return;
-    }
-    if (saveInFlightRef.current) {
-      queuedSaveRef.current = data;
-      return;
-    }
-    saveInFlightRef.current = true;
+  const persistSnapshot = useCallback(async (data: Record<string, unknown>): Promise<SaveConfirmation> => {
     const envelope = createOperationEnvelope({
       diagramId: diagram.id,
       deviceId: getOrCreateDeviceId(localStorage),
@@ -114,45 +105,46 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       baseData: confirmedDataRef.current,
       data,
     });
-    socket.emit('diagram_change', envelope, (acknowledgement: any) => {
-      saveInFlightRef.current = false;
-      if (acknowledgement?.success) {
-        if (acknowledgement.autoMerged && acknowledgement.data) {
-          rememberServerSequence(localStorage, diagram.id, acknowledgement.sequence);
-          const queued = queuedSaveRef.current;
-          queuedSaveRef.current = null;
-          if (queued) {
-            // The queued full update was composed against the old snapshot.
-            // Send it as stale so the server merges or reports a conflict.
-            submitSaveRef.current?.(queued);
-          } else {
-            // A debounce timer may still hold newer edits. Keep the original
-            // baseline so any later save is merged safely by the server.
-            setSyncError('Los cambios se fusionaron. Actualiza el diagrama cuando termines de editar para ver el estado completo.');
-          }
-          return;
-        }
-        confirmedVersionRef.current = acknowledgement.version;
-        confirmedDataRef.current = data;
-        rememberServerSequence(
-          localStorage,
-          diagram.id,
-          acknowledgement.sequence,
-        );
-        setSyncError(null);
-        const queued = queuedSaveRef.current;
-        queuedSaveRef.current = null;
-        if (queued) submitSaveRef.current?.(queued);
-        return;
-      }
-      setSyncError(
+    const acknowledgement = socket && isConnected
+      ? await new Promise<any>((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          reject(new Error(t('diagramEditor.validation.saveTimeout')));
+        }, 15000);
+        socket.emit('diagram_change', envelope, (response: any) => {
+          window.clearTimeout(timeout);
+          resolve(response);
+        });
+      })
+      : await onApplyOperation(envelope).then((response) => ({
+        ...response,
+        success: response.status !== 'CONFLICT',
+      }));
+
+    if (!acknowledgement?.success) {
+      throw new Error(
         acknowledgement?.conflictId
           ? `Conflicto ${acknowledgement.conflictId}: el cambio quedó pendiente de resolución.`
-          : acknowledgement?.error || 'No se pudo confirmar el cambio colaborativo.',
+          : acknowledgement?.error || t('diagramEditor.validation.saveError'),
       );
-    });
-  }, [diagram.id, isConnected, persistWithHttp, socket, t]);
-  submitSaveRef.current = submitDurableSave;
+    }
+
+    const confirmedData = confirmedDiagramData(data, acknowledgement);
+    confirmedVersionRef.current = acknowledgement.version;
+    confirmedDataRef.current = confirmedData;
+    rememberServerSequence(localStorage, diagram.id, acknowledgement.sequence);
+    onSaveConfirmed(confirmedData, acknowledgement.version);
+    setSyncError(
+      acknowledgement.autoMerged
+        ? t('diagramEditor.validation.mergedSave')
+        : null,
+    );
+    return { version: acknowledgement.version, data: confirmedData };
+  }, [diagram.id, isConnected, onApplyOperation, onSaveConfirmed, socket, t]);
+  persistSnapshotRef.current = persistSnapshot;
+
+  const submitDurableSave = useCallback((data: Record<string, unknown>) => (
+    saveQueueRef.current!.enqueue(data)
+  ), []);
 
   // Handle save - defined early to be used by other functions
   const handleSave = useCallback(() => {
@@ -170,8 +162,10 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       intermediateTables: intermediateTables.length
     });
 
-    submitDurableSave(diagramData);
-  }, [nodes, edges, submitDurableSave, userId]);
+    void submitDurableSave(diagramData).catch((error) => {
+      setSyncError(error instanceof Error ? error.message : t('diagramEditor.validation.saveError'));
+    });
+  }, [nodes, edges, submitDurableSave, t, userId]);
 
   const handleManualSave = useCallback(async () => {
     const diagramData = serializeDiagramData(nodes, edges, userId);
@@ -180,7 +174,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
     try {
       await runManualDiagramSave({
         data: diagramData,
-        persist: persistWithHttp,
+        persist: submitDurableSave,
         onStatus: setSaveStatus,
       });
       saveStatusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2500);
@@ -188,7 +182,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       setSyncError(error instanceof Error ? error.message : t('diagramEditor.validation.saveError'));
       saveStatusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 4000);
     }
-  }, [edges, nodes, persistWithHttp, t, userId]);
+  }, [edges, nodes, submitDurableSave, t, userId]);
 
   useEffect(() => () => {
     if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -1155,7 +1149,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
       // todavía contiene el estado anterior durante este mismo render.
       const generatedData = serializeDiagramData(finalNodes, finalEdges, userId);
       console.log('💾 Guardando modelo UML generado en BD...');
-      submitDurableSave(generatedData);
+      await submitDurableSave(generatedData);
     } catch (error) {
       console.error('❌❌❌ ERROR EN handleUMLGenerated ❌❌❌');
       console.error('Error completo:', error);
@@ -1165,12 +1159,12 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
   }, [setNodes, setEdges, submitDurableSave, socket, isConnected, emit, diagram.id, userId]);
 
   return (
-    <div className="h-full w-full flex">
+    <div className="flex h-full w-full min-w-0 overflow-hidden">
       {/* Sidebar Izquierdo - Elementos UML */}
       <UMLSidebar onAddElement={handleAddElement} />
 
       {/* Área Principal del Editor */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Barra de Herramientas */}
         <UMLToolbar
           onAddClass={() => onAddClass({ x: 100, y: 100 })}
@@ -1282,7 +1276,7 @@ export default function UMLEditor({ diagram, workspaceId, userId, userName, onSa
 
       {/* Lado Derecho - Chat IA */}
       {isChatOpen && (
-        <div className="w-80 border-l border-border bg-card flex-shrink-0">
+        <div className="fixed inset-3 z-40 flex overflow-hidden rounded-lg border border-border bg-card shadow-xl xl:static xl:inset-auto xl:z-auto xl:w-80 xl:flex-shrink-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:shadow-none">
           <AIChatInterface
             diagramId={diagram.id}
             currentModel={{

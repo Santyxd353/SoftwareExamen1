@@ -61,24 +61,32 @@ export default function UMLToolbar({
         ? t('diagramEditor.actions.saveFailed')
         : t('diagramEditor.actions.save');
   return (
-    <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-2 py-2 sm:px-4 sm:py-3">
       {/* Sección Izquierda - Estado de Colaboración */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
           <Users size={16} className={isConnected ? 'text-primary' : 'text-gray-400'} />
-          <span className="text-sm text-gray-600">
+          <span className="hidden text-sm text-gray-600 sm:inline">
             {isConnected ? t('diagramEditor.status.collaborating') : t('diagramEditor.status.disconnected')}
           </span>
         </div>
       </div>
 
       {/* Sección Central - Título */}
-      <div className="flex items-center">
+      <div className="hidden items-center md:flex">
         <h1 className="text-lg font-semibold text-gray-700">{t('diagramEditor.title')}</h1>
       </div>
 
       {/* Sección Derecha - Solo Guardar */}
-      <div className="flex items-center space-x-1">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onAddClass}
+          className="flex min-h-11 items-center gap-2 rounded-md border border-border px-3 text-sm text-foreground transition-colors hover:bg-muted xl:hidden"
+        >
+          <Plus size={16} />
+          <span className="hidden sm:inline">{t('diagramEditor.actions.addClass')}</span>
+        </button>
         <button
           onClick={onSave}
           disabled={saveStatus === 'saving'}
