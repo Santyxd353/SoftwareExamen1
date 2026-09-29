@@ -264,6 +264,19 @@ export const diagramAPI = {
 
 // AI Chat API
 export const aiAPI = {
+  transcribeAudio: async (audio: Blob, locale: 'es' | 'en', signal?: AbortSignal) => {
+    const form = new FormData();
+    const extension = audio.type.includes('ogg')
+      ? 'ogg'
+      : audio.type.includes('mp4')
+        ? 'mp4'
+        : 'webm';
+    form.append('audio', audio, `dictation.${extension}`);
+    form.append('locale', locale);
+    const response = await api.post('/ai-chat/transcribe', form, { timeout: 60000, signal });
+    return response.data as { text: string };
+  },
+
   proposeBackendRefinement: async (diagramId: string, instruction: string) => {
     const response = await api.post('/ai-chat/backend-refinement/propose', {
       diagramId,

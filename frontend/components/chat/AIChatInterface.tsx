@@ -7,11 +7,11 @@ import { useI18n } from '@/components/i18n/I18nProvider';
 import type { TranslationKey } from '@/lib/i18n/catalogs/en.ts';
 import { describeUmlProposal, selectUmlProposal, type UmlModel } from '@/lib/uml-proposal';
 import {
-  createBrowserSpeechInputController,
-  type BrowserSpeechInputController,
-  type BrowserSpeechRecognitionScope,
-  type SpeechInputError,
-} from '@/lib/speech-input';
+  createAudioRecorderController,
+  type AudioRecorderController,
+  type AudioRecorderError,
+  type AudioRecorderScope,
+} from '@/lib/audio-recorder';
 
 interface ChatMessage {
   id: string;
@@ -71,11 +71,14 @@ const templateTranslationKeys: Record<string, {
   },
 };
 
-const speechErrorTranslationKeys: Record<SpeechInputError, TranslationKey> = {
+type VoiceError = AudioRecorderError | 'network' | 'no-speech' | 'too-large';
+
+const speechErrorTranslationKeys: Record<VoiceError, TranslationKey> = {
   unsupported: 'ai.voice.unsupported',
   'permission-denied': 'ai.voice.permissionDenied',
   'no-speech': 'ai.voice.noSpeech',
   network: 'ai.voice.networkError',
+  'too-large': 'ai.voice.tooLarge',
   unknown: 'ai.voice.error',
 };
 
@@ -92,14 +95,20 @@ export default function AIChatInterface({ diagramId, currentModel, onUMLGenerate
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [speechError, setSpeechError] = useState<SpeechInputError | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [speechError, setSpeechError] = useState<VoiceError | null>(null);
   const { locale, t } = useI18n();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const speechControllerRef = useRef<BrowserSpeechInputController | null>(null);
+  const speechControllerRef = useRef<AudioRecorderController | null>(null);
   const speechBaseTextRef = useRef('');
+  const localeRef = useRef(locale);
+
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -121,17 +130,39 @@ export default function AIChatInterface({ diagramId, currentModel, onUMLGenerate
   }, [isOpen]);
 
   useEffect(() => {
-    const controller = createBrowserSpeechInputController({
-      scope: window as unknown as BrowserSpeechRecognitionScope,
-      onTranscript: (transcript) => {
-        setInputMessage([speechBaseTextRef.current, transcript].filter(Boolean).join(' '));
+    let active = true;
+    const controller = createAudioRecorderController({
+      scope: window as unknown as AudioRecorderScope,
+      onAudio: async (audio, signal) => {
+        if (audio.size > 10 * 1024 * 1024) {
+          if (active) setSpeechError('too-large');
+          return;
+        }
+        setIsTranscribing(true);
+        setSpeechError(null);
+        try {
+          const { text } = await aiAPI.transcribeAudio(audio, localeRef.current, signal);
+          if (!active || signal.aborted) return;
+          const transcript = text.trim();
+          if (!transcript) {
+            setSpeechError('no-speech');
+            return;
+          }
+          setInputMessage([speechBaseTextRef.current, transcript].filter(Boolean).join(' '));
+        } catch {
+          if (!active || signal.aborted) return;
+          setSpeechError('network');
+        } finally {
+          if (active && !signal.aborted) setIsTranscribing(false);
+        }
       },
-      onListeningChange: setIsListening,
+      onRecordingChange: setIsListening,
       onError: setSpeechError,
     });
     speechControllerRef.current = controller;
 
     return () => {
+      active = false;
       controller.dispose();
       speechControllerRef.current = null;
     };
@@ -292,8 +323,8 @@ export default function AIChatInterface({ diagramId, currentModel, onUMLGenerate
     }
   };
 
-  const handleToggleSpeech = () => {
-    if (isLoading) return;
+  const handleToggleSpeech = async () => {
+    if (isLoading || isTranscribing) return;
     if (isListening) {
       speechControllerRef.current?.stop();
       return;
@@ -301,7 +332,7 @@ export default function AIChatInterface({ diagramId, currentModel, onUMLGenerate
 
     speechBaseTextRef.current = inputMessage.trim();
     setSpeechError(null);
-    speechControllerRef.current?.start(locale);
+    await speechControllerRef.current?.start();
   };
 
   if (!isOpen) return null;
@@ -472,7 +503,7 @@ export default function AIChatInterface({ diagramId, currentModel, onUMLGenerate
           {/* Image upload button */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading || isListening}
+            disabled={isLoading || isListening || isTranscribing}
             className="flex min-h-11 min-w-11 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             title={t('ai.upload')}
             aria-label={t('ai.upload')}
@@ -488,12 +519,12 @@ export default function AIChatInterface({ diagramId, currentModel, onUMLGenerate
             onKeyPress={handleKeyPress}
             placeholder={t('ai.placeholder')}
             className="min-w-0 flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
-            disabled={isLoading || isListening}
+            disabled={isLoading || isListening || isTranscribing}
           />
           <button
             type="button"
             onClick={handleToggleSpeech}
-            disabled={isLoading}
+            disabled={isLoading || isTranscribing}
             aria-label={isListening ? t('ai.voice.stop') : t('ai.voice.start')}
             aria-pressed={isListening}
             title={isListening ? t('ai.voice.stop') : t('ai.voice.start')}
@@ -508,9 +539,9 @@ export default function AIChatInterface({ diagramId, currentModel, onUMLGenerate
           <button
             onClick={() => handleSendMessage()}
             aria-label={t('ai.send')}
-            disabled={(!inputMessage.trim() && !selectedImage) || isLoading}
+            disabled={(!inputMessage.trim() && !selectedImage) || isLoading || isTranscribing}
             className={`flex min-h-11 min-w-11 items-center justify-center rounded transition-colors ${
-              (!inputMessage.trim() && !selectedImage) || isLoading
+              (!inputMessage.trim() && !selectedImage) || isLoading || isTranscribing
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
             }`}
@@ -528,7 +559,13 @@ export default function AIChatInterface({ diagramId, currentModel, onUMLGenerate
             {t('ai.voice.listening')}
           </p>
         )}
-        {speechError && !isListening && (
+        {isTranscribing && (
+          <p role="status" className="mt-2 flex items-center gap-2 text-xs font-medium text-primary">
+            <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+            {t('ai.voice.transcribing')}
+          </p>
+        )}
+        {speechError && !isListening && !isTranscribing && (
           <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-300">
             {t(speechErrorTranslationKeys[speechError])}
           </p>

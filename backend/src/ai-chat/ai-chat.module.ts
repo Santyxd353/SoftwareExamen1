@@ -6,11 +6,12 @@ import { DiagramModule } from '../diagram/diagram.module';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { CodeGenerationModule } from '../code-generation/code-generation.module';
 import { BackendRefinementService } from './backend-refinement.service';
+import { AudioTranscriptionService } from './audio-transcription.service';
 
 @Module({
   imports: [PrismaModule, DiagramModule, AuthorizationModule, CodeGenerationModule],
   controllers: [AiChatController],
-  providers: [AiChatService, BackendRefinementService],
+  providers: [AiChatService, BackendRefinementService, AudioTranscriptionService],
   exports: [AiChatService, BackendRefinementService],
 })
 export class AiChatModule {}

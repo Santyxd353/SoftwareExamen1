@@ -1,4 +1,5 @@
-import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Request, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AiChatService } from './ai-chat.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
@@ -7,6 +8,7 @@ import {
   ConfirmBackendRefinementDto,
   ProposeBackendRefinementDto,
 } from './dto/backend-refinement.dto';
+import { AudioTranscriptionService, UploadedAudio } from './audio-transcription.service';
 
 class GenerateUMLDto {
   @IsString()
@@ -38,7 +40,18 @@ export class AiChatController {
   constructor(
     private aiChatService: AiChatService,
     private readonly backendRefinement: BackendRefinementService,
+    private readonly audioTranscription: AudioTranscriptionService,
   ) {}
+
+  @Post('transcribe')
+  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  async transcribeAudio(
+    @UploadedFile() file: UploadedAudio,
+    @Body('locale') locale?: string,
+  ) {
+    if (!file) throw new BadRequestException('Audio file is required');
+    return this.audioTranscription.transcribe(file, locale || 'es');
+  }
 
   @Post('backend-refinement/propose')
   proposeBackendRefinement(
